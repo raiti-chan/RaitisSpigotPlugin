@@ -1,0 +1,36 @@
+name: RaitisSpigotPlugin
+version: '${project.version}'
+main: raitichan.net.raitisspigotplugin.RaitisSpigotPlugin
+api-version: 1.19
+commands:
+  player-position:
+    aliases: [pp]
+    description: Get Player Position
+    usage: <command> [player]
+
+  get-my-head:
+    description: Get My Head
+
+  xp-bank:
+    aliases: [xpb]
+    description: xp bank
+    usage: <command> [show|deposit|withdraw|splash] [value]
+
+  self-inventory:
+    aliases: [si]
+    description: self inventory
+    usage: <command> [create|destroy|open|get-open-item]
+
+  custom-enchantment:
+    aliases: [ce]
+    description: <command>
+    permission: raitis-spigot-plugin.op.custom-enchantment
+
+permissions:
+  raitis-spigot-plugin.op:
+    default: op
+    children:
+      raitis-spigot-plugin.op.custom-enchantment: true
+
+  raitis-spigot-plugin.op.custom-enchantment:
+    default: op
