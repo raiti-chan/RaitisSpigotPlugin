@@ -24,7 +24,7 @@ public class PlayerPosition implements CommandExecutor, TabCompleter {
             if (target == null) return false;
             Location targetLocation = target.getLocation();
 
-            player.sendMessage(target.getDisplayName() + ":[" + player.getWorld().getEnvironment()+ "] x:" + (int)targetLocation.getX() + " y:" + (int)targetLocation.getY() + " z:" + (int)targetLocation.getZ());
+            player.sendMessage(target.getDisplayName() + ":[" + target.getWorld().getEnvironment()+ "] x:" + (int)targetLocation.getX() + " y:" + (int)targetLocation.getY() + " z:" + (int)targetLocation.getZ());
             return true;
         }
         return false;

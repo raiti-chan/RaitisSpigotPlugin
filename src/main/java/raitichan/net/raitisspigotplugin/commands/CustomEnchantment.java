@@ -151,6 +151,7 @@ public class CustomEnchantment implements CommandExecutor, TabCompleter {
         PIERCING("minecraft:piercing"),
         QUICK_CHARGE("minecraft:quick_charge"),
         SOUL_SPEED("minecraft:soul_speed"),
+        SWIFT_SNEAK("minecraft:swift_sneak")
         ;
 
         public final String id;

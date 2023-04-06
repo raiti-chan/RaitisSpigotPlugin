@@ -2,7 +2,6 @@ package raitichan.net.raitisspigotplugin.commands;
 
 import com.google.common.collect.ImmutableList;
 import de.tr7zw.changeme.nbtapi.*;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
@@ -18,93 +17,112 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import raitichan.net.raitisspigotplugin.nbtstruct.NBTPlayer;
+import raitichan.net.raitisspigotplugin.nbtstruct.NBTSelfInventory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
-public class SelfInventory implements CommandExecutor, TabCompleter {
+public class SelfInventory implements TabCompleter, CommandExecutor {
+
+    private static final List<String> SUB_COMMANDS = ImmutableList.of("create", "rename", "destroy", "open", "get-open-item");
+
+    @Nullable
+    @Override
+    public List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
+        switch (strings.length) {
+            case 1: {
+                return SUB_COMMANDS;
+            }
+            case 2: {
+                if (!(commandSender instanceof Player)) break;
+                Player player = (Player) commandSender;
+                NBTSelfInventory nbtSelfInventory = new NBTPlayer(player).getSelfInventory();
+                return new ArrayList<>(nbtSelfInventory.getInventoryNames());
+            }
+        }
+        return ImmutableList.of();
+    }
 
     @Override
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
         if (strings.length < 2) return false;
         if (!(commandSender instanceof Player)) return false;
         Player player = (Player) commandSender;
+        NBTSelfInventory nbtSelfInventory = new NBTPlayer(player).getSelfInventory();
+
         String subCommand = strings[0];
         String inventoryName = strings[1];
 
         switch (subCommand) {
-            case "create": {
-                NBTCompound selfInventoryCompound = getSelfInventoryCompound(player);
-                if (selfInventoryCompound.hasTag(inventoryName)) return false;
-                selfInventoryCompound.addCompound(inventoryName);
-                NBTCompoundList itemsCompoundList = getItemsCompoundList(player, inventoryName);
-                if (itemsCompoundList == null) return false;
-                for (int i = 0; i < 54; i++) {
-                    itemsCompoundList.addCompound().setItemStack("ItemStack", new ItemStack(Material.AIR));
-                }
-                break;
-            }
-            case "destroy": {
-                NBTCompound selfInventoryCompound = getSelfInventoryCompound(player);
-                if (!selfInventoryCompound.hasTag(inventoryName)) return false;
-                selfInventoryCompound.removeKey(inventoryName);
-                break;
-            }
-            case "open": {
-                NBTCompoundList itemsCompoundList = getItemsCompoundList(player, inventoryName);
-                if (itemsCompoundList == null) return false;
-                openInventory(player, inventoryName, itemsCompoundList);
-                break;
-            }
-            case "get-open-item": {
-                NBTCompound selfInventoryCompound = getSelfInventoryCompound(player);
-                if (!selfInventoryCompound.hasTag(inventoryName)) return false;
-                NBTItem nbtItem = new NBTItem(new ItemStack(Material.CHEST));
-                NBTCompound display = nbtItem.addCompound("display");
-                display.setString("Name", "{\"text\":\"" + inventoryName + "\",\"color\":\"light_purple\"}");
-                display.getStringList("Lore").add("{\"text\":\"Owner:" + player.getDisplayName() + "\"}");
-
-                NBTCompound selfInventoryItemCompound = nbtItem.addCompound("SelfInventoryItem");
-                selfInventoryItemCompound.setUUID("Owner", player.getUniqueId());
-                selfInventoryItemCompound.setString("InventoryName", inventoryName);
-                player.getInventory().addItem(nbtItem.getItem());
-                break;
-            }
+            case "create":
+                return create(nbtSelfInventory, inventoryName);
+            case "rename":
+                if (strings.length < 3) return false;
+                return rename(nbtSelfInventory, inventoryName, strings[2]);
+            case "destroy":
+                return destroy(nbtSelfInventory, inventoryName);
+            case "open":
+                return open(player, nbtSelfInventory, inventoryName);
+            case "get-open-item":
+                return getOpenItem(player, nbtSelfInventory, inventoryName);
             default:
                 return false;
+        }
+    }
+
+    private static boolean create(@NotNull NBTSelfInventory nbtSelfInventory, @NotNull String inventoryName) {
+        if (nbtSelfInventory.hasInventory(inventoryName)) return false;
+        NBTSelfInventory.NBTInventory nbtInventory = nbtSelfInventory.getInventory(inventoryName);
+        NBTSelfInventory.NBTInventoryItemList nbtInventoryItemList = nbtInventory.getItems();
+        for (int i = 0; i < 54; i++) {
+            nbtInventoryItemList.addNBTStruct().setItemStack(new ItemStack(Material.AIR));
         }
         return true;
     }
 
-    public static NBTCompound getSelfInventoryCompound(Player player) {
-        PersistentDataContainer playerDataContainer = player.getPersistentDataContainer();
-        NBTPersistentDataContainer nbtPlayerDataContainer = new NBTPersistentDataContainer(playerDataContainer);
-        NBTCompound selfInventoryCompound = nbtPlayerDataContainer.getCompound("SelfInventory");
-        if (selfInventoryCompound == null) {
-            selfInventoryCompound = nbtPlayerDataContainer.addCompound("SelfInventory");
-        }
-        return selfInventoryCompound;
+
+    public static boolean rename(@NotNull NBTSelfInventory nbtSelfInventory, @NotNull String src, @NotNull String dst) {
+        if (!nbtSelfInventory.hasInventory(src)) return false;
+        if (nbtSelfInventory.hasInventory(dst)) return false;
+        nbtSelfInventory.getInventory(dst).compound.mergeCompound(nbtSelfInventory.getInventory(src).compound);
+        nbtSelfInventory.removeInventory(src);
+        return true;
     }
 
-    public static NBTCompoundList getItemsCompoundList(Player player, String inventoryName) {
-        NBTCompound selfInventoryCompound = getSelfInventoryCompound(player);
-        NBTCompound inventoryCompound = selfInventoryCompound.getCompound(inventoryName);
-        if (inventoryCompound == null) {
-            return null;
-        }
-
-        return inventoryCompound.getCompoundList("Items");
+    private static boolean destroy(@NotNull NBTSelfInventory nbtSelfInventory, @NotNull String inventoryName) {
+        if (!nbtSelfInventory.hasInventory(inventoryName)) return false;
+        nbtSelfInventory.removeInventory(inventoryName);
+        return true;
     }
 
-    public static void openInventory(Player player, String inventoryName, NBTCompoundList itemsCompoundList) {
-        Inventory inventory = Bukkit.createInventory(player, 54, inventoryName);
+    private static boolean open(@NotNull Player player, @NotNull NBTSelfInventory nbtSelfInventory, @NotNull String inventoryName) {
+        if (!nbtSelfInventory.hasInventory(inventoryName)) return false;
+        openInventory(player, nbtSelfInventory.getInventory(inventoryName));
+        return true;
+    }
+
+    private static boolean getOpenItem(@NotNull Player player, @NotNull NBTSelfInventory nbtSelfInventory, @NotNull String inventoryName) {
+        if (!nbtSelfInventory.hasInventory(inventoryName)) return false;
+        NBTItem nbtItem = new NBTItem(new ItemStack(Material.CHEST));
+        NBTCompound display = nbtItem.addCompound("display");
+        display.setString("Name", "{\"text\":\"" + inventoryName + "\",\"color\":\"light_purple\"}");
+        display.getStringList("Lore").add("{\"text\":\"Owner:" + player.getDisplayName() + "\"}");
+
+        NBTCompound selfInventoryItemCompound = nbtItem.addCompound("SelfInventoryItem");
+        selfInventoryItemCompound.setUUID("Owner", player.getUniqueId());
+        selfInventoryItemCompound.setString("InventoryName", inventoryName);
+        player.getInventory().addItem(nbtItem.getItem());
+        return true;
+    }
+
+    public static void openInventory(Player player, NBTSelfInventory.NBTInventory nbtInventory) {
+        Inventory inventory = Bukkit.createInventory(player, 54, nbtInventory.getInventoryName());
         int index = 0;
-        for (ReadWriteNBT itemCompound : itemsCompoundList) {
-            ItemStack itemStack = itemCompound.getItemStack("ItemStack");
+        for (NBTSelfInventory.NBTInventoryItem nbtInventoryItem : nbtInventory.getItems()) {
+            ItemStack itemStack = nbtInventoryItem.getItemStack();
             inventory.setItem(index, itemStack);
             index++;
         }
@@ -113,22 +131,8 @@ public class SelfInventory implements CommandExecutor, TabCompleter {
     }
 
 
-    @Nullable
-    @Override
-    public List<String> onTabComplete(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, @NotNull String[] strings) {
-        switch (strings.length) {
-            case 1: {
-                return Arrays.asList("create", "destroy", "open", "get-open-item");
-            }
-            case 2: {
-                if (!(commandSender instanceof Player)) break;
-                Player player = (Player) commandSender;
-                NBTCompound selfInventoryCompound = getSelfInventoryCompound(player);
-                return new ArrayList<>(selfInventoryCompound.getKeys());
-            }
-        }
-        return ImmutableList.of();
-    }
+
+
 
     public static class SelfInventoryEvents implements Listener {
 
@@ -139,13 +143,15 @@ public class SelfInventory implements CommandExecutor, TabCompleter {
             if (!humanEntity.getScoreboardTags().contains("Open-SelfInventory")) return;
             Player player = (Player) humanEntity;
             player.removeScoreboardTag("Open-SelfInventory");
+
+            NBTSelfInventory nbtSelfInventory = new NBTPlayer(player).getSelfInventory();
+            NBTSelfInventory.NBTInventory nbtInventory = nbtSelfInventory.getInventory(e.getView().getTitle());
+            NBTSelfInventory.NBTInventoryItemList nbtInventoryItemList = nbtInventory.getItems();
             Inventory inventory = e.getInventory();
 
-            NBTCompoundList itemsCompoundList = SelfInventory.getItemsCompoundList(player, e.getView().getTitle());
-            if (itemsCompoundList == null) return;
             int index = 0;
             for (ItemStack itemStack : inventory) {
-                itemsCompoundList.get(index).setItemStack("ItemStack", itemStack);
+                nbtInventoryItemList.get(index).setItemStack(itemStack);
                 index++;
             }
         }
@@ -158,29 +164,29 @@ public class SelfInventory implements CommandExecutor, TabCompleter {
             ItemStack itemStack = e.getItem();
             if (itemStack == null) return;
 
-            NBTItem nbtItem = new NBTItem(itemStack);
+            NBTItem nbtItem = new NBTItem(itemStack, true);
             if (!nbtItem.hasTag("SelfInventoryItem")) return;
 
             Player player = e.getPlayer();
             NBTCompound selfInventoryItemCompound = nbtItem.getCompound("SelfInventoryItem");
             if (!selfInventoryItemCompound.getUUID("Owner").equals(player.getUniqueId())) {
-                nbtItem.removeKey("display");
-                nbtItem.removeKey("SelfInventoryItem");
-                nbtItem.applyNBT(itemStack);
+                removeInventoryItemTags(nbtItem);
                 return;
             }
 
             String inventoryName = selfInventoryItemCompound.getString("InventoryName");
-            NBTCompoundList itemsCompoundList = SelfInventory.getItemsCompoundList(player, inventoryName);
-            if (itemsCompoundList == null) {
-                nbtItem.removeKey("display");
-                nbtItem.removeKey("SelfInventoryItem");
-                nbtItem.applyNBT(itemStack);
+            NBTSelfInventory nbtSelfInventory = new NBTPlayer(player).getSelfInventory();
+            if (!nbtSelfInventory.hasInventory(inventoryName)) {
+                removeInventoryItemTags(nbtItem);
                 return;
             }
-
-            SelfInventory.openInventory(player, inventoryName, itemsCompoundList);
+            SelfInventory.openInventory(player, nbtSelfInventory.getInventory(inventoryName));
             e.setCancelled(true);
+        }
+
+        public static void removeInventoryItemTags(NBTItem nbtItem) {
+            nbtItem.removeKey("display");
+            nbtItem.removeKey("SelfInventoryItem");
         }
     }
 }
