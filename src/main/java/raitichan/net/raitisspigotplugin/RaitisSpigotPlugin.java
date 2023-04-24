@@ -2,9 +2,11 @@ package raitichan.net.raitisspigotplugin;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import raitichan.net.raitisspigotplugin.commands.*;
+import raitichan.net.raitisspigotplugin.listener.PlayerDeathEventListener;
 
 import java.util.Objects;
 
+@SuppressWarnings("unused")
 public final class RaitisSpigotPlugin extends JavaPlugin {
 
     public static RaitisSpigotPlugin INSTANCE;
@@ -20,6 +22,8 @@ public final class RaitisSpigotPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SelfInventory.SelfInventoryEvents(), this);
         Objects.requireNonNull(this.getCommand("custom-enchantment")).setExecutor(new CustomEnchantment());
         getServer().getPluginManager().registerEvents(new CustomEnchantment.CustomEnchantmentEvents(), this);
+
+        getServer().getPluginManager().registerEvents(new PlayerDeathEventListener(), this);
     }
 
     @Override

@@ -1,7 +1,7 @@
 package raitichan.net.raitisspigotplugin.commands;
 
 import com.google.common.collect.ImmutableList;
-import de.tr7zw.changeme.nbtapi.NBTItem;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -19,9 +20,14 @@ public class GetMyHead implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender commandSender, @NotNull Command command, @NotNull String s, String[] strings) {
         if (commandSender instanceof Player) {
             Player player = (Player) commandSender;
-            NBTItem nbtItem = new NBTItem(new ItemStack(Material.PLAYER_HEAD));
-            nbtItem.setString("SkullOwner", player.getDisplayName());
-            player.getInventory().addItem(nbtItem.getItem());
+            ItemStack headItemStack = new ItemStack(Material.PLAYER_HEAD);
+            SkullMeta skullMeta = (SkullMeta)headItemStack.getItemMeta();
+            if (skullMeta == null) {
+                return false;
+            }
+            skullMeta.setOwningPlayer(Bukkit.getOfflinePlayer(player.getUniqueId()));
+            headItemStack.setItemMeta(skullMeta);
+            player.getInventory().addItem(headItemStack);
             return true;
         }
         return false;
